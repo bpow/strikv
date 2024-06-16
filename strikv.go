@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -93,6 +94,15 @@ func main() {
 
 	lsm_size, vlog_size := db.Size()
 	log.Printf("LSM: %d, VLOG: %d", lsm_size, vlog_size)
+
+	port := envWithDefault("STRIKV_PORT", "8080")
+	listener, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("Address: %s", listener.Addr().String())
+
 	http.HandleFunc("/{key}", handler)
-	log.Fatal(http.ListenAndServe(":9080", nil))
+	log.Fatal(http.Serve(listener, nil))
 }
