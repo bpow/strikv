@@ -19,10 +19,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("GET %s", variantKey)
 		lsm_size, vlog_size := db.Size()
 		log.Printf("LSM: %d, VLOG: %d", lsm_size, vlog_size)
-		rtxn := db.NewTransaction(false)
-		defer rtxn.Discard()
+		txn := db.NewTransaction(false)
+		defer txn.Discard()
 		log.Print("Getting item")
-		item, err := rtxn.Get([]byte(variantKey))
+		item, err := txn.Get([]byte(variantKey))
 		if err == badger.ErrKeyNotFound {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -41,18 +41,18 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	} else if r.Method == "PUT" {
-		wtxn := db.NewTransaction(true)
+		txn := db.NewTransaction(true)
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		werr := wtxn.Set([]byte(variantKey), []byte(body))
-		if werr != nil {
+		err = txn.Set([]byte(variantKey), []byte(body))
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		wtxn.Commit()
+		txn.Commit()
 		w.WriteHeader(http.StatusCreated)
 		return
 	} else {
@@ -61,12 +61,20 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func main() {
-	var err error
-	db, err = badger.Open(badger.DefaultOptions("/tmp/badger"))
+func initDb() *badger.DB {
+	dbPath := os.Getenv("STRIKV_PATH")
+	if dbPath == "" {
+		dbPath = "/tmp/badger"
+	}
+	db, err := badger.Open(badger.DefaultOptions(dbPath))
 	if err != nil {
 		log.Fatal(err)
 	}
+	return db
+}
+
+func main() {
+	db = initDb()
 	defer db.Close()
 
 	c := make(chan os.Signal, 1)
