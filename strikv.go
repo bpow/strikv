@@ -61,11 +61,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func initDb() *badger.DB {
-	dbPath := os.Getenv("STRIKV_PATH")
-	if dbPath == "" {
-		dbPath = "/tmp/badger"
+func envWithDefault(key, def string) string {
+	val, ok := os.LookupEnv(key)
+	if !ok {
+		return def
 	}
+	return val
+}
+
+func initDb() *badger.DB {
+	dbPath := envWithDefault("STRIKV_PATH", "/tmp/strikv")
 	db, err := badger.Open(badger.DefaultOptions(dbPath))
 	if err != nil {
 		log.Fatal(err)
